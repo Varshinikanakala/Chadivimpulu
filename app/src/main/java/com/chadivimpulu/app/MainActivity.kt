@@ -15,11 +15,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -34,12 +32,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Maroon = Color(0xFF7A1E2C)
-private val Green = Color(0xFF1E7A46)
-private val Red = Color(0xFFB3261E)
-private val Cream = Color(0xFFFFF8EE)
-private val Sand = Color(0xFFF3E6D0)
-private val Muted = Color(0xFF6B5A4C)
+val Maroon = Color(0xFF7A1E2C)
+val Green = Color(0xFF1E7A46)
+val Red = Color(0xFFB3261E)
+val Cream = Color(0xFFFFF8EE)
+val Sand = Color(0xFFF3E6D0)
+val Muted = Color(0xFF6B5A4C)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,7 +61,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** Which screen is showing. */
 sealed interface Screen {
     data object Home : Screen
     data class Edit(val entry: Entry?, val fast: Boolean = false) : Screen
@@ -85,7 +82,6 @@ fun App(store: EntryStore) {
         store.save(list)
     }
 
-    // Backup: user picks where to save the file (Drive, Downloads...). No permission needed.
     val backupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -101,7 +97,6 @@ fun App(store: EntryStore) {
         }
     }
 
-    // Restore: merges the backup with what is already in the app.
     val restoreLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -172,8 +167,6 @@ fun shareText(context: Context, entries: List<Entry>) {
     }
     context.startActivity(Intent.createChooser(intent, "Share"))
 }
-
-// ---------------- Small building blocks ----------------
 
 @Composable
 fun Header(
@@ -294,8 +287,6 @@ fun ToggleItem(text: String, selected: Boolean, color: Color, modifier: Modifier
     }
 }
 
-// ---------------- Screens ----------------
-
 @Composable
 fun HomeScreen(
     entries: List<Entry>,
@@ -384,133 +375,3 @@ fun HomeScreen(
         }
     }
 }
-
-@Composable
-fun EditScreen(
-    initial: Entry?,
-    fast: Boolean,
-    entries: List<Entry>,
-    onSave: (Entry) -> Unit,
-    onDelete: (Long) -> Unit,
-    onBack: () -> Unit,
-) {
-    val context = LocalContext.current
-    val isNew = initial == null || initial.id == 0L
-    var received by remember { mutableStateOf(initial?.received ?: true) }
-    var name by remember { mutableStateOf(initial?.name ?: "") }
-    var place by remember { mutableStateOf(initial?.place ?: "") }
-    var amount by remember { mutableStateOf(initial?.amount?.takeIf { it > 0 }?.toString() ?: "") }
-    var gift by remember { mutableStateOf(initial?.gift ?: "") }
-    var function by remember { mutableStateOf(initial?.function ?: "") }
-    var date by remember { mutableStateOf(initial?.date ?: today()) }
-    var savedCount by remember { mutableStateOf(0) }
-    var confirmDelete by remember { mutableStateOf(false) }
-    val people = remember(entries) { entries.people() }
-
-    // Name suggestions from people already in the book.
-    val suggestions = if (name.isBlank()) emptyList() else people.filter {
-        it.name.contains(name.trim(), ignoreCase = true) && it.key != personKeyOf(name, place)
-    }.take(4)
-
-    fun save() {
-        val amt = amount.trim().toLongOrNull() ?: 0L
-        if (name.isBlank()) { toast(context, "పేరు రాయండి"); return }
-        if (amt <= 0 && gift.isBlank()) { toast(context, "మొత్తం లేదా బహుమతి రాయండి"); return }
-        val e = Entry(
-            id = if (isNew) System.currentTimeMillis() else initial!!.id,
-            name = name.trim(),
-            place = place.trim(),
-            amount = amt,
-            gift = gift.trim(),
-            function = function.trim(),
-            date = date.trim(),
-            received = received,
-        )
-        onSave(e)
-        if (fast) {
-            savedCount++
-            toast(context, "${e.name} సేవ్ అయింది")
-            name = ""; place = ""; amount = ""; gift = ""
-        } else {
-            onBack()
-        }
-    }
-
-    val title = when {
-        fast -> "ఫంక్షన్ రోజు Fast mode"
-        isNew -> "కొత్త entry"
-        else -> "Entry మార్చండి"
-    }
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Header(title, onBack = onBack) {
-            if (!isNew) {
-                IconButton(onClick = { confirmDelete = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "తొలగించు", tint = Red)
-                }
-            }
-        }
-        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (fast) {
-                Text("ఫంక్షన్ పేరు, తేదీ ఒకసారి రాస్తే చాలు. తర్వాత పేరు + మొత్తం మాత్రమే.", color = Muted, fontSize = 13.sp)
-                Field("ఫంక్షన్ (ఉదా. మా అమ్మాయి పెళ్ళి)", function) { function = it }
-                Field("తేదీ", date) { date = it }
-                if (savedCount > 0) {
-                    Text("ఇప్పటికి $savedCount entries సేవ్ అయ్యాయి ✅", color = Green, fontWeight = FontWeight.Bold)
-                }
-            }
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Sand).padding(4.dp)
-            ) {
-                ToggleItem("మనకు వచ్చింది", received, Green, Modifier.weight(1f)) { received = true }
-                ToggleItem("మనం ఇచ్చాం", !received, Red, Modifier.weight(1f)) { received = false }
-            }
-            Field("పేరు *", name) { name = it }
-            suggestions.forEach { p ->
-                Text(
-                    "👉 ${p.name}" + if (p.place.isNotBlank()) " (${p.place})" else "",
-                    color = Maroon,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Sand)
-                        .clickable { name = p.name; place = p.place }.padding(10.dp),
-                )
-            }
-            Field("ఊరు / బంధుత్వం", place) { place = it }
-            Field("మొత్తం (₹)", amount, KeyboardType.Number) { v -> amount = v.filter { it.isDigit() } }
-            Field("బహుమతి (ఉంటే: చీర, వెండి…)", gift) { gift = it }
-            if (!fast) {
-                Field("ఫంక్షన్", function) { function = it }
-                Field("తేదీ (dd-MM-yyyy)", date) { date = it }
-            }
-            Button(
-                onClick = { save() },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Maroon),
-            ) {
-                Text("సేవ్ చేయండి", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-
-    if (confirmDelete && initial != null) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("ఈ entry తొలగించాలా?") },
-            text = { Text("తొలగించిన తర్వాత ఇది తిరిగి రాదు.") },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDelete(initial.id) }) {
-                    Text("తొలగించు", color = Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("వద్దు") }
-            },
-        )
-    }
-}
-
-@Composable
-fun PersonScreen(
-    key: String,
-    entries: List<Entry>,
-  
